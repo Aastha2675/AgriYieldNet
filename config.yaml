@@ -1,0 +1,8 @@
+paths:
+  source_tif_dir: D:/Cut_Sickle/S2/tif
+  annotation_file: D:/Cut_Sickle/S2/annotations.csv
+  project_raw_dir: data/raw
+
+files:
+  final_output: final_satellite_indices.csv
+  annotation_output: annotations.csv

@@ -1,14 +1,31 @@
-# Ignore datasets
-*.csv
-
-# Ignore trained models
-*.pkl
-
-# Jupyter checkpoints
-.ipynb_checkpoints/
-
 # Python cache
 __pycache__/
+*.py[cod]
 
-# Virtual environments
+# Virtual Environment
+algriyeild/
 venv/
+.venv/
+
+# Environment variables
+.env
+
+# Data folders
+data/
+*.csv
+
+# Model files
+*.pkl
+*.joblib
+*.h5
+*.pt
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# DVC cache
+.dvc/cache/
