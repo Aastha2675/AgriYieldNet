@@ -241,6 +241,7 @@ def save_annotations(annotation_src: str, output_dir: str, output_name: str):
 
 def main():
     try:
+        logger.info("Data ingestion Started...")
         config = load_config()
         logger = setup_logger()
 
@@ -263,7 +264,6 @@ def main():
     except Exception as e:
         logger.error(f"Unexpected error occurred: {e}")
         raise
-
 
 if __name__ == "__main__":
     main()
