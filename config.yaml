@@ -1,6 +1,6 @@
 paths:
   source_tif_dir: D:/Cut_Sickle/S2/tif
-  annotation_file: D:/Cut_Sickle/S2/annotations.csv
+  annotation_file: D:/Cut_Sickle/S2/sickle_dataset_tabular_copy.csv
   project_raw_dir: data/raw
 
 files:
