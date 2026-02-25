@@ -241,9 +241,11 @@ def save_annotations(annotation_src: str, output_dir: str, output_name: str):
 
 def main():
     try:
-        logger.info("Data ingestion Started...")
+        
         config = load_config()
         logger = setup_logger()
+
+        logger.info("Data ingestion Started...")
 
         source_dir = config["paths"]["source_tif_dir"]
         output_dir = config["paths"]["project_raw_dir"]
