@@ -1,0 +1,22 @@
+schema: '2.0'
+stages:
+  data_ingestion:
+    cmd: python src/data_ingestion.py
+    deps:
+    - path: config.yaml
+      hash: md5
+      md5: 477d29d742e1502dfaeeba5aa8341765
+      size: 237
+    - path: src/data_ingestion.py
+      hash: md5
+      md5: f8dae613e5f1a0e09ad978e8d580d5db
+      size: 8499
+    outs:
+    - path: data/raw/annotations.csv
+      hash: md5
+      md5: 5c275bf4ea5d95cd08434ee49ec69ed7
+      size: 210284
+    - path: data/raw/final_satellite_indices.csv
+      hash: md5
+      md5: 572fa25a818a496814a85a9bdf7003de
+      size: 30971401
