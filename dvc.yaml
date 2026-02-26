@@ -17,3 +17,14 @@ stages:
     outs:
       - data/processed/train_final_dataset.csv
       - data/processed/test_final_dataset.csv
+
+  feature_engineering:
+    cmd: python src/feature_engineering.py
+    deps:
+      - src/feature_engineering.py
+      - data/processed/train_final_dataset.csv
+      - data/processed/test_final_dataset.csv
+      - config.yaml
+    outs:
+      - data/processed/train_feature_engineered.csv
+      - data/processed/test_feature_engineered.csv
