@@ -104,13 +104,16 @@ def clean_annotation_dataframe(raw_df: pd.DataFrame) -> pd.DataFrame:
     """
     try:
         df = raw_df.copy()
-
         logger.info("Starting annotation data cleaning...")
 
+        # -----------------------------
         # Remove rows where SPLIT is null
-        df = df[df["SPLIT"].notna()]
+        # -----------------------------
+        df = df[df["SPLIT"].notna()].copy()
 
+        # -----------------------------
         # Data Type Conversion
+        # -----------------------------
         int_columns = [
             "PLOT_ID",
             "YEAR",
@@ -121,36 +124,56 @@ def clean_annotation_dataframe(raw_df: pd.DataFrame) -> pd.DataFrame:
         ]
 
         for col in int_columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
 
-        # Convert YEAR properly
-        df["YEAR"] = pd.to_datetime(df["YEAR"], format="%Y", errors="coerce").dt.year
+        # YEAR conversion (safe)
+        df["YEAR"] = pd.to_numeric(df["YEAR"], errors="coerce").fillna(0).astype(int)
 
+        # -----------------------------
         # Handle Missing Values
-        # Variety → fill with Unknown
-        df["VARIETY"] = df["VARIETY"].fillna("Unknown")
+        # -----------------------------
+        if "VARIETY" in df.columns:
+            df["VARIETY"] = df["VARIETY"].fillna("Unknown")
 
-        # River Part → fill with No Water Source
-        df["RIVER_PART"] = df["RIVER_PART"].fillna("No Water Source")
+        if "RIVER_PART" in df.columns:
+            df["RIVER_PART"] = df["RIVER_PART"].fillna("No Water Source")
 
-        # PADDY_BIN Transformation
-        # Replace 2 → 0 (non-paddy)
-        df["PADDY_BIN"] = df["PADDY_BIN"].replace(2, 0)
+        if "PADDY_BIN" in df.columns:
+            df["PADDY_BIN"] = df["PADDY_BIN"].replace(2, 0)
 
-        # Date Conversion
-        df["SOWING_DATE"] = pd.to_datetime(
-            df["SOWING_DATE"], format="%m/%d/%Y", errors="coerce"
-        )
+        # -----------------------------
+        # Mixed Date Format Handling
+        # (MM-DD-YYYY and MM/DD/YYYY)
+        # -----------------------------
+        date_columns = [
+            "SOWING_DATE",
+            "TRANSPLANTING_DATE",
+            "HARVESTING_DATE"
+        ]
 
-        df["TRANSPLANTING_DATE"] = pd.to_datetime(
-            df["TRANSPLANTING_DATE"], format="%m/%d/%Y", errors="coerce"
-        )
+        for col in date_columns:
+            if col in df.columns:
+                # Standardize separator
+                df[col] = (
+                    df[col]
+                    .astype(str)
+                    .str.strip()
+                    .str.replace("-", "/", regex=False)
+                )
 
-        df["HARVESTING_DATE"] = pd.to_datetime(
-            df["HARVESTING_DATE"], format="%m/%d/%Y", errors="coerce"
-        )
+                # Convert to datetime
+                df[col] = pd.to_datetime(
+                    df[col],
+                    format="%m/%d/%Y",
+                    errors="coerce"
+                )
 
+                logger.info(f"{col} missing after parsing: {df[col].isna().sum()}")
+
+        # -----------------------------
         # Season Duration Feature
+        # -----------------------------
         month_map = {
             'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
             'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
@@ -158,7 +181,10 @@ def clean_annotation_dataframe(raw_df: pd.DataFrame) -> pd.DataFrame:
 
         def calculate_season_days(season_str, year):
             try:
-                start_month_str, end_month_str = season_str.split('-')
+                if pd.isna(season_str) or year == 0:
+                    return np.nan
+
+                start_month_str, end_month_str = season_str.lower().split('-')
                 start_month = month_map[start_month_str]
                 end_month = month_map[end_month_str]
 
@@ -174,24 +200,27 @@ def clean_annotation_dataframe(raw_df: pd.DataFrame) -> pd.DataFrame:
                                relativedelta(days=1)
 
                 return (end_date - start_date).days + 1
-            except:
+
+            except Exception:
                 return np.nan
 
-        df["SEASON_DURATION"] = df.apply(
-            lambda row: calculate_season_days(
-                row["STANDARD_SEASON"], row["YEAR"]
-            ),
-            axis=1
-        )
+        if "STANDARD_SEASON" in df.columns:
+            df["SEASON_DURATION"] = df.apply(
+                lambda row: calculate_season_days(
+                    row["STANDARD_SEASON"], row["YEAR"]
+                ),
+                axis=1
+            )
 
         logger.info("Annotation data cleaning completed successfully.")
+        logger.info(f"Final cleaned dataset shape: {df.shape}")
 
         return df
 
     except Exception as e:
         logger.error(f"Unexpected error occurred: {e}")
         raise
-
+    
 # ===============================
 # MERGE DATAFRAMES
 # ===============================
