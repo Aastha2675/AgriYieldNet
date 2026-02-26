@@ -2,7 +2,14 @@ paths:
   source_tif_dir: D:/Cut_Sickle/S2/tif
   annotation_file: D:/Cut_Sickle/S2/sickle_dataset_tabular_copy.csv
   project_raw_dir: data/raw
+  project_processed_dir: data/processed
 
 files:
+  # raw data outputs (data extraction)
   final_output: final_satellite_indices.csv
   annotation_output: annotations.csv
+
+  # data cleaning outputs 
+  train_output: train_final_dataset.csv
+  val_output: val_final_dataset.csv
+  test_output: test_final_dataset.csv

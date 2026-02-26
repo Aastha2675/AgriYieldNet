@@ -5,8 +5,8 @@ stages:
     deps:
     - path: config.yaml
       hash: md5
-      md5: 477d29d742e1502dfaeeba5aa8341765
-      size: 237
+      md5: 9c8fcf701006a52c0709d0bb1d45eb61
+      size: 465
     - path: src/data_ingestion.py
       hash: md5
       md5: f8dae613e5f1a0e09ad978e8d580d5db
@@ -20,3 +20,31 @@ stages:
       hash: md5
       md5: 572fa25a818a496814a85a9bdf7003de
       size: 30971401
+  data_cleaning:
+    cmd: python src/data_cleaning.py
+    deps:
+    - path: data/raw/annotations.csv
+      hash: md5
+      md5: 5c275bf4ea5d95cd08434ee49ec69ed7
+      size: 210284
+    - path: data/raw/final_satellite_indices.csv
+      hash: md5
+      md5: 572fa25a818a496814a85a9bdf7003de
+      size: 30971401
+    - path: src/data_cleaning.py
+      hash: md5
+      md5: 1d710acf6be1627d189b89cf13ef3fc2
+      size: 9484
+    outs:
+    - path: data/processed/test_final_dataset.csv
+      hash: md5
+      md5: e19fcb60d0f9c1e2f1bab3db34fe5e49
+      size: 3303885
+    - path: data/processed/train_final_dataset.csv
+      hash: md5
+      md5: 41f583bd8ca677cdd109053e8d72b0c0
+      size: 40046815
+    - path: data/processed/val_final_dataset.csv
+      hash: md5
+      md5: 083b3a16905533f0aa49d9767072fb3c
+      size: 4171470
