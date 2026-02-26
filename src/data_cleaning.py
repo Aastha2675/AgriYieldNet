@@ -106,14 +106,10 @@ def clean_annotation_dataframe(raw_df: pd.DataFrame) -> pd.DataFrame:
         df = raw_df.copy()
         logger.info("Starting annotation data cleaning...")
 
-        # -----------------------------
         # Remove rows where SPLIT is null
-        # -----------------------------
         df = df[df["SPLIT"].notna()].copy()
 
-        # -----------------------------
         # Data Type Conversion
-        # -----------------------------
         int_columns = [
             "PLOT_ID",
             "YEAR",
@@ -130,9 +126,7 @@ def clean_annotation_dataframe(raw_df: pd.DataFrame) -> pd.DataFrame:
         # YEAR conversion (safe)
         df["YEAR"] = pd.to_numeric(df["YEAR"], errors="coerce").fillna(0).astype(int)
 
-        # -----------------------------
         # Handle Missing Values
-        # -----------------------------
         if "VARIETY" in df.columns:
             df["VARIETY"] = df["VARIETY"].fillna("Unknown")
 
@@ -142,10 +136,8 @@ def clean_annotation_dataframe(raw_df: pd.DataFrame) -> pd.DataFrame:
         if "PADDY_BIN" in df.columns:
             df["PADDY_BIN"] = df["PADDY_BIN"].replace(2, 0)
 
-        # -----------------------------
         # Mixed Date Format Handling
         # (MM-DD-YYYY and MM/DD/YYYY)
-        # -----------------------------
         date_columns = [
             "SOWING_DATE",
             "TRANSPLANTING_DATE",
@@ -171,9 +163,7 @@ def clean_annotation_dataframe(raw_df: pd.DataFrame) -> pd.DataFrame:
 
                 logger.info(f"{col} missing after parsing: {df[col].isna().sum()}")
 
-        # -----------------------------
         # Season Duration Feature
-        # -----------------------------
         month_map = {
             'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
             'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
@@ -252,6 +242,83 @@ def merge_data(sat_df: pd.DataFrame, ann_df: pd.DataFrame) -> pd.DataFrame:
         logger.error(f"Unexpected error occurred: {e}")
         raise
 
+def final_dataset_processing(df: pd.DataFrame, output_path: str) -> pd.DataFrame:
+    """
+    Performs final cleaning:
+    - Remove unnecessary columns
+    - Remove duplicates
+    - Keep only Paddy crop
+    - Replace ALL zeros with NaN
+    - Drop rows with any NaN
+    - Create growth duration features
+    - Save cleaned dataset
+    """
+
+    try:
+        logger.info("Starting final dataset processing...")
+        logger.info(f"Initial Shape: {df.shape}")
+
+        # Remove unnecessary columns
+        if "Folder" in df.columns:
+            df = df.drop(columns=["Folder"])
+
+        # Remove duplicates
+        duplicate_count = df.duplicated().sum()
+        logger.info(f"Duplicate rows found: {duplicate_count}")
+
+        df = df.drop_duplicates()
+        logger.info(f"Shape after removing duplicates: {df.shape}")
+
+        # Keep only Paddy crop
+        if "PADDY_BIN" in df.columns:
+            df = df[df["PADDY_BIN"] != 0]
+            df = df.drop(columns=["PADDY_BIN"])
+            logger.info(f"Shape after keeping only Paddy crop: {df.shape}")
+
+        # Replace ALL zeros with NaN
+        df = df.replace(0, np.nan)
+        logger.info("Replaced all 0 values with NaN.")
+
+        # Drop rows containing ANY NaN
+        before_drop = df.shape[0]
+        df = df.dropna()
+        after_drop = df.shape[0]
+
+        logger.info(f"Rows removed due to NaN: {before_drop - after_drop}")
+        logger.info(f"Shape after dropping NaNs: {df.shape}")
+
+        # Date Conversion (safe)
+        date_cols = ["HARVESTING_DATE", "SOWING_DATE", "TRANSPLANTING_DATE"]
+
+        for col in date_cols:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col], errors="coerce")
+
+        # Feature Engineering
+        if all(col in df.columns for col in date_cols):
+
+            df['DAYS_SOW_TO_HARVEST'] = (
+                df['HARVESTING_DATE'] - df['SOWING_DATE']
+            ).dt.days
+
+            df['DAYS_TRANS_TO_HARVEST'] = (
+                df['HARVESTING_DATE'] - df['TRANSPLANTING_DATE']
+            ).dt.days
+
+            df['SOWING_DOY'] = df['SOWING_DATE'].dt.dayofyear
+
+            logger.info("Growth duration features created.")
+
+        # Final Save
+        df.to_csv(output_path, index=False)
+        logger.info(f"Final dataset saved at: {output_path}")
+        logger.info(f"Final dataset shape: {df.shape}")
+
+        return df
+
+    except Exception as e:
+        logger.error(f"Error in final dataset processing: {e}")
+        raise
 
 # ===============================
 # MAIN FUNCTION
@@ -261,60 +328,57 @@ def main():
     try:
         logger.info("Starting Data Cleaning Pipeline...")
 
-        # Load config
         config = load_config("config.yaml")
         raw_dir = config["paths"]["project_raw_dir"]
         processed_dir = config["paths"]["project_processed_dir"]
 
         os.makedirs(processed_dir, exist_ok=True)
 
-        # Load raw datasets
-        satellite_file = os.path.join(raw_dir, config["files"]["final_output"])
-        annotation_file = os.path.join(raw_dir, config["files"]["annotation_output"])
+        satellite_file = os.path.join(
+            raw_dir, config["files"]["final_output"]
+        )
+        annotation_file = os.path.join(
+            raw_dir, config["files"]["annotation_output"]
+        )
 
-        logger.info(f"Loading satellite data from: {satellite_file}")
         sat_df = pd.read_csv(satellite_file)
-
-        logger.info(f"Loading annotation data from: {annotation_file}")
         ann_df = pd.read_csv(annotation_file)
 
-        # Preprocess satellite data
         sat_df = preprocess_satellite_dataframe(sat_df)
-
-        # Clean annotations
         ann_df = clean_annotation_dataframe(ann_df)
 
-        # Split annotations into train/val/test
+        # Split datasets
         train_ann = ann_df[ann_df["SPLIT"] == "train"].copy()
-        val_ann = ann_df[ann_df["SPLIT"] == "val"].copy()
-        test_ann = ann_df[ann_df["SPLIT"] == "test"].copy()
+        test_ann = ann_df[ann_df["SPLIT"].isin(["val", "test"])].copy()
 
-        # Merge datasets
-        logger.info("Merging Train data...")
+        # Remove SPLIT column
+        train_ann.drop(columns=["SPLIT"], inplace=True)
+        test_ann.drop(columns=["SPLIT"], inplace=True)
+
+        logger.info("SPLIT column removed after splitting.")
+
+        # Merge
         train_final = merge_data(sat_df, train_ann)
-        
-        logger.info("Merging Validation data...")
-        val_final = merge_data(sat_df, val_ann)
-        
-        logger.info("Merging Test data...")
         test_final = merge_data(sat_df, test_ann)
 
-        # Save processed datasets
-        train_file = os.path.join(processed_dir, config["files"]["train_output"])
-        val_file = os.path.join(processed_dir, config["files"]["val_output"])
-        test_file = os.path.join(processed_dir, config["files"]["test_output"])
+        # Final processing
+        train_file = os.path.join(
+            processed_dir, config["files"]["train_output"]
+        )
 
-        train_final.to_csv(train_file, index=False)
-        val_final.to_csv(val_file, index=False)
-        test_final.to_csv(test_file, index=False)
+        test_file = os.path.join(
+            processed_dir, config["files"]["test_output"]
+        )
 
-        logger.info("Data Cleaning Completed Successfully!")
-        logger.info(f"Train Dataset Shape: {train_final.shape}")
-        logger.info(f"Validation Dataset Shape: {val_final.shape}")
-        logger.info(f"Test Dataset Shape: {test_final.shape}")
+        train_final = final_dataset_processing(train_final, train_file)
+        test_final = final_dataset_processing(test_final, test_file)
+
+        logger.info("Pipeline completed successfully.")
+        logger.info(f"Train shape: {train_final.shape}")
+        logger.info(f"Test shape: {test_final.shape}")
 
     except Exception as e:
-        logger.error(f"Pipeline failed with error: {e}")
+        logger.error(f"Pipeline failed: {e}")
         raise
 
 

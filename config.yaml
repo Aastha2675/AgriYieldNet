@@ -11,5 +11,4 @@ files:
 
   # data cleaning outputs 
   train_output: train_final_dataset.csv
-  val_output: val_final_dataset.csv
   test_output: test_final_dataset.csv
